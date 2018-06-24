@@ -1,0 +1,61 @@
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: test-app-wrapped
+  labels:
+    app: test-app-wrapped
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: test-app-wrapped
+    spec:
+      serviceAccountName: vault-auth
+      initContainers:
+        - name: vault-init
+          image: everpeace/curl-jq
+          command:
+            - "sh"
+            - "-c"
+            - >
+              X_VAULT_TOKEN=6293b6b1-6bf0-13a6-c185-b437a71f3549;
+              curl -X PUT --header "X-Vault-Token: $X_VAULT_TOKEN" --header "X-Vault-Wrap-TTL: 60s" http://192.168.99.1:8010/v1/auth/approle/role/test-app/secret-id | jq -j '.wrap_info.token'> /etc/app/wrapped_token;
+          volumeMounts:
+            - name: app-creds
+              mountPath: /etc/app
+            - name: vault-token
+              mountPath: /etc/vault
+      containers:
+        - name: test-app-wrapped
+          image: everpeace/curl-jq
+          command:
+            - "sh"
+            - "-c"
+            - >
+              X_VAULT_WRAPPED_TOKEN=$(cat /etc/app/wrapped_token);
+              curl -X PUT --header "X-Vault-Token: $X_VAULT_WRAPPED_TOKEN" http://192.168.99.1:8010/v1/sys/wrapping/unwrap > /etc/app/secret.json;
+              ROLE_ID=c871bc37-9a2a-c91f-dcdb-ceb7261896f0;
+              SECRET_ID=$(cat /etc/app/secret.json | jq -j ".data.secret_id");
+              curl --data '{"role_id": "'"$ROLE_ID"'", "secret_id": "'"$SECRET_ID"'" }' http://192.168.99.1:8010/v1/auth/approle/login | jq -j ".auth.client_token"> /etc/app/token;
+              X_VAULT_TOKEN=$(cat /etc/app/token);
+              curl --header "X-Vault-Token: $X_VAULT_TOKEN" http://192.168.99.1:8010/v1/secret/data/mysql/credential > /etc/app/creds.json;
+              while true; do
+                echo /etc/app/creds.json;
+                sleep 10;
+              done
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3000
+          resources:
+            limits:
+              memory: "50Mi"
+              cpu: "100m"
+          volumeMounts:
+            - name: app-creds
+              mountPath: /etc/app
+      volumes:
+        - name: app-creds
+          emptyDir: {}
+        - name: vault-token
+          emptyDir: {}
