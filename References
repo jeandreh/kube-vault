@@ -1,0 +1,7 @@
+https://medium.com/@gmaliar/dynamic-secrets-on-kubernetes-pods-using-vault-35d9094d169
+https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
+https://www.vaultproject.io/docs/auth/approle.html
+https://www.vaultproject.io/docs/concepts/response-wrapping.html
+https://www.vaultproject.io/guides/identity/authentication.html
+https://www.vaultproject.io/api/auth/kubernetes/index.html
+https://www.vaultproject.io/docs/auth/kubernetes.html
